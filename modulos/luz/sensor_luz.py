@@ -22,6 +22,6 @@ try:
         except Exception as error:
             print(f"Error al leer el sensor: {error}")
             
-        time.sleep(1.0)
+        time.sleep(10.0)
 except KeyboardInterrupt:
     print('\nlectura detenida')

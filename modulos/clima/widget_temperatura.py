@@ -55,8 +55,8 @@ class TemperaturaSensorThread(QThread):
                     # Errores temporales de lectura del DHT11 son comunes, se ignora y reintenta
                     pass
                 
-                # Dormir 2.5 segundos de manera interrumpible (DHT11 requiere min 2s de tasa)
-                for _ in range(25):
+                # Dormir 10 segundos de manera interrumpible (DHT11 requiere min 2s de tasa)
+                for _ in range(100):
                     if not self.running:
                         break
                     time.sleep(0.1)
@@ -80,8 +80,8 @@ class TemperaturaSensorThread(QThread):
             self.log_mensaje.emit(f"Simulación - Temp: {temp_simulada:.1f}°C")
             enviar_lectura("temperatura", temp_simulada)
             
-            # Dormir 6 segundos interrumpibles
-            for _ in range(60):
+            # Dormir 10 segundos interrumpibles
+            for _ in range(100):
                 if not self.running:
                     break
                 time.sleep(0.1)

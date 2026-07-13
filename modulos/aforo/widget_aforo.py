@@ -43,7 +43,7 @@ class AforoSensorThread(QThread):
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             
-            INTERVALO_SEGUNDOS = 5
+            INTERVALO_SEGUNDOS = 10
             tiempo_ultima_captura = time.time() - INTERVALO_SEGUNDOS
             
             self.log_mensaje.emit("Sensor de Aforo iniciado con éxito y monitoreando.")
@@ -79,7 +79,7 @@ class AforoSensorThread(QThread):
             self.log_mensaje.emit(f"Simulación - Aforo actualizado: {aforo_simulado} personas")
             enviar_lectura("aforo", aforo_simulado)
             
-            for _ in range(70):
+            for _ in range(100):
                 if not self.running:
                     break
                 time.sleep(0.1)

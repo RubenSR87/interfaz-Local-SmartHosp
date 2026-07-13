@@ -43,7 +43,7 @@ try:
         else:
             print("[Advertencia] Voltaje demasiado bajo, revisa las conexiones.")
 
-        time.sleep(2.0)
+        time.sleep(10.0)
 
 except KeyboardInterrupt:
     print("\nlectura detenida")

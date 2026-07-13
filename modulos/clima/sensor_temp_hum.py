@@ -31,7 +31,7 @@ try:
             
         except RuntimeError as error:
             print(f"Reintentando lectura: {error.args[0]}")
-            time.sleep(2.0)
+            time.sleep(10.0)
             continue
             
         except Exception as error:
@@ -39,6 +39,6 @@ try:
             print("error critico")
             raise error
         
-        time.sleep(2.0)
+        time.sleep(10.0)
 except KeyboardInterrupt:
     print('\nlectura detenida')

@@ -29,7 +29,7 @@ print("ï¿½Sistema listo y monitoreando! Presiona 'q' en la ventana de video p
 # ==========================================
 # VARIABLES DE CONTROL
 # ==========================================
-INTERVALO_SEGUNDOS = 5
+INTERVALO_SEGUNDOS = 10
 tiempo_ultima_captura = time.time() - INTERVALO_SEGUNDOS 
 ultimos_resultados = None
 aforo_actual = 0

@@ -47,7 +47,7 @@ try:
         print(f"Nivel de Ruido Ambiental: {ruido_str}")
         
         # intervalo de actualizacion del sensor
-        time.sleep(2.5)
+        time.sleep(10.0)
 
 except KeyboardInterrupt:
     print("\nLectura detenida.")
