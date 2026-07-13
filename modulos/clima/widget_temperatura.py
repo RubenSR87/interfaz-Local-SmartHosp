@@ -6,6 +6,7 @@ import math
 from PySide6.QtCore import QThread, Signal, Qt, QRectF, QPointF, QEasingCurve, QPropertyAnimation, Property
 from PySide6.QtWidgets import QWidget, QStyle, QStyleOption
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath, QLinearGradient, QRadialGradient, QFont, QPixmap
+from modulos.supabase_client import enviar_lectura, enviar_lecturas_dict
 
 class TemperaturaSensorThread(QThread):
     temperatura_cambiada = Signal(float)
@@ -45,6 +46,11 @@ class TemperaturaSensorThread(QThread):
                         if hum is not None:
                             self.humedad_cambiada.emit(float(hum))
                         self.log_mensaje.emit(f"DHT11 - Temp: {temp_c:.1f}°C | Hum: {hum}%")
+                        
+                        payload = {"temperature": float(temp_c)}
+                        if hum is not None:
+                            payload["humidity"] = float(hum)
+                        enviar_lecturas_dict(payload)
                 except RuntimeError as error:
                     # Errores temporales de lectura del DHT11 son comunes, se ignora y reintenta
                     pass
@@ -72,6 +78,7 @@ class TemperaturaSensorThread(QThread):
             
             self.temperatura_cambiada.emit(temp_simulada)
             self.log_mensaje.emit(f"Simulación - Temp: {temp_simulada:.1f}°C")
+            enviar_lectura("temperatura", temp_simulada)
             
             # Dormir 6 segundos interrumpibles
             for _ in range(60):

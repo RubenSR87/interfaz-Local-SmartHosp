@@ -6,6 +6,7 @@ import math
 from PySide6.QtCore import QThread, Signal, Qt, QRectF, QPointF, QEasingCurve, QPropertyAnimation, Property
 from PySide6.QtWidgets import QWidget, QStyle, QStyleOption
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath, QLinearGradient, QRadialGradient, QFont
+from modulos.supabase_client import enviar_lectura
 
 class AforoSensorThread(QThread):
     aforo_cambiado = Signal(int)
@@ -60,6 +61,7 @@ class AforoSensorThread(QThread):
                     self.aforo_cambiado.emit(aforo_actual)
                     self.log_mensaje.emit(f"Aforo actualizado: {aforo_actual} personas")
                     tiempo_ultima_captura = tiempo_actual
+                    enviar_lectura("aforo", aforo_actual)
                 
                 time.sleep(0.03)
                 
@@ -75,6 +77,7 @@ class AforoSensorThread(QThread):
             aforo_simulado = random.randint(5, 38)
             self.aforo_cambiado.emit(aforo_simulado)
             self.log_mensaje.emit(f"Simulación - Aforo actualizado: {aforo_simulado} personas")
+            enviar_lectura("aforo", aforo_simulado)
             
             for _ in range(70):
                 if not self.running:
