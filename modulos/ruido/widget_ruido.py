@@ -4,6 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QFrame
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QRectF, QPointF
 from PySide6.QtGui import QPainter, QColor, QPainterPath, QFont, QPen, QBrush, QLinearGradient, QImage
+from modulos.supabase_client import enviar_lectura
 
 class SensorRuidoWorker(QThread):
     datos_actualizados = Signal(float)
@@ -12,6 +13,25 @@ class SensorRuidoWorker(QThread):
         super().__init__()
         self.simulacion = simulacion
         self.corriendo = True
+        self.stream = None
+        self.audio_buffer = []
+        
+        if not self.simulacion:
+            try:
+                import sounddevice as sd
+                import numpy as np
+                
+                def callback_audio(indata, frames, time_info, status):
+                    rms = np.sqrt(np.mean(indata**2))
+                    self.audio_buffer.append(rms)
+                
+                self.stream = sd.InputStream(channels=1, samplerate=48000, callback=callback_audio)
+                self.stream.start()
+                print("[Ruido] Sensor de micrófono real iniciado.")
+            except Exception as e:
+                print(f"[Ruido] Error iniciando micrófono: {e}. Usando simulación.")
+                self.simulacion = True
+                
         self.valor_simulado = 40.0 
 
     def run(self):
@@ -25,10 +45,28 @@ class SensorRuidoWorker(QThread):
                 elif self.valor_simulado < 35.0:
                     self.valor_simulado += 20.0
                 self.datos_actualizados.emit(self.valor_simulado)
-            self.msleep(1500)
+                print(f"[Sensor Ruido] Simulación - Nivel: {self.valor_simulado:.1f} dB")
+                enviar_lectura("ruido", self.valor_simulado)
+                self.msleep(1500)
+            else:
+                import numpy as np
+                if self.audio_buffer:
+                    promedio_rms = np.mean(self.audio_buffer)
+                    self.audio_buffer.clear()
+                    if promedio_rms > 0:
+                        db_spl = 20 * np.log10(promedio_rms) + 115
+                    else:
+                        db_spl = 0.0
+                    self.datos_actualizados.emit(float(db_spl))
+                    print(f"[Sensor Ruido] Real - Nivel: {db_spl:.1f} dB")
+                    enviar_lectura("ruido", db_spl)
+                self.msleep(1500)
 
     def detener(self):
         self.corriendo = False
+        if self.stream is not None:
+            self.stream.stop()
+            self.stream.close()
         self.wait()
 
 class WidgetRuido(QFrame):
@@ -42,7 +80,7 @@ class WidgetRuido(QFrame):
         
         self.fase_onda = 0.0
         
-        self.worker = SensorRuidoWorker()
+        self.worker = SensorRuidoWorker(simulacion=False)
         self.worker.datos_actualizados.connect(self.actualizar_target)
         self.worker.start()
         

@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QTimer, QRectF
 from PySide6.QtGui import (
     QPainter, QColor, QPainterPath, QFont, QRadialGradient, QBrush, QLinearGradient, QPen
 )
+from modulos.supabase_client import enviar_lectura
 
 class SensorLuzWorker(QThread):
     datos_actualizados = Signal(float)
@@ -39,14 +40,18 @@ class SensorLuzWorker(QThread):
                 
                 if self.valor_simulado > 1000.0:
                     self.valor_simulado -= 400.0
-                elif self.valor_simulado < 0.0:
+                if self.valor_simulado < 0.0:
                     self.valor_simulado += 300.0
                     
                 self.datos_actualizados.emit(self.valor_simulado)
+                print(f"[Sensor Luz] Simulación - Lux: {self.valor_simulado:.1f}")
+                enviar_lectura("lux", self.valor_simulado)
             else:
                 try:
                     nivel_luz = self.sensor.lux
                     self.datos_actualizados.emit(nivel_luz)
+                    print(f"[Sensor Luz] Real - Lux: {nivel_luz:.1f}")
+                    enviar_lectura("lux", nivel_luz)
                 except Exception as e:
                     print(f"Error leyendo sensor de luz: {e}")
             
@@ -94,7 +99,7 @@ class WidgetLuz(QWidget):
         self.timer_anim.timeout.connect(self.animar)
         self.timer_anim.start(16) 
 
-        self.worker = SensorLuzWorker(simulacion=True)
+        self.worker = SensorLuzWorker(simulacion=False)
         self.worker.datos_actualizados.connect(self.set_lux)
         self.worker.start()
 

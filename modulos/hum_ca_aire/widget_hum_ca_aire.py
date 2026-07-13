@@ -9,6 +9,7 @@ from PySide6.QtGui import (
     QPainter, QColor, QPainterPath, QFont, QPen, QBrush, QLinearGradient, QRadialGradient, QImage
 )
 import os
+from modulos.supabase_client import enviar_lectura
 
 class SensorHumedadWorker(QThread):
     datos_actualizados = Signal(float)
@@ -17,50 +18,155 @@ class SensorHumedadWorker(QThread):
         super().__init__()
         self.simulacion = simulacion
         self.corriendo = True
+        self.sensor = None
+        
+        if not self.simulacion:
+            try:
+                import board
+                import adafruit_dht
+                # Inicializar DHT11 real en el pin GPIO 4
+                self.sensor = adafruit_dht.DHT11(board.D4)
+                print("[Humedad] Sensor real DHT11 inicializado.")
+            except Exception as e:
+                print(f"[Humedad] Error iniciando sensor real: {e}. Usando simulación.")
+                self.simulacion = True
+                
         self.valor_simulado = 50.0 
 
     def run(self):
         while self.corriendo:
             if self.simulacion:
-                # Fluctúa drásticamente para poder probar todos los estados gráficos
                 variacion = random.uniform(-20.0, 25.0) 
                 self.valor_simulado += variacion
-                
-                # Rebote suave en los límites
                 if self.valor_simulado > 100.0:
                     self.valor_simulado -= 40.0
                 elif self.valor_simulado < 0.0:
                     self.valor_simulado += 30.0
-                    
                 self.datos_actualizados.emit(self.valor_simulado)
-            
-            self.msleep(2000)
+                print(f"[Sensor Humedad] Simulación - Humedad: {self.valor_simulado:.1f}%")
+                enviar_lectura("humedad", self.valor_simulado)
+                self.msleep(2000)
+            else:
+                try:
+                    hum = self.sensor.humidity
+                    if hum is not None:
+                        self.datos_actualizados.emit(float(hum))
+                        print(f"[Sensor Humedad] Real - Humedad: {hum:.1f}%")
+                        enviar_lectura("humedad", hum)
+                except RuntimeError as error:
+                    # Errores temporales de lectura de DHT11 se ignoran
+                    pass
+                except Exception as e:
+                    print(f"[Humedad] Error leyendo sensor: {e}")
+                
+                # DHT11 requiere al menos 2 segundos entre lecturas
+                for _ in range(25):
+                    if not self.corriendo: break
+                    self.msleep(100)
 
     def detener(self):
         self.corriendo = False
+        if self.sensor is not None:
+            self.sensor.exit()
         self.wait()
 
 
 class SensorCalidadWorker(QThread):
-    datos_actualizados = Signal(float)
 
-    def __init__(self, simulacion=True):
+    datos_actualizados = Signal(float)
+    error_lectura = Signal(str)
+
+    def __init__(self, simulacion=None):
         super().__init__()
-        self.simulacion = simulacion
+
+        # Si no se especifica manualmente, se lee desde una variable de entorno.
+        # Valor predeterminado: simulación.
+        if simulacion is None:
+            modo = os.getenv("SMARTHOSP_MODE", "simulacion").lower()
+            self.simulacion = modo != "real"
+        else:
+            self.simulacion = simulacion
+
         self.corriendo = True
-        self.valor_simulado = 50.0 
+        self.valor_simulado = 50.0
+        self.sensor = None
+
+        if not self.simulacion:
+            try:
+                # Importación diferida:
+                # Windows no necesita tener instaladas las librerías de Raspberry.
+                from modulos.hum_ca_aire.sensor_calidad_aire import (
+                    SensorCalidadAire
+                )
+
+                self.sensor = SensorCalidadAire(
+                    voltaje_entrada=5.0,
+                    r0=37.0,
+                    enviar_supabase=True,
+                )
+
+                print(
+                    "[Calidad de aire] Modo real activado: "
+                    "MQ-135 + ADS1115."
+                )
+
+            except Exception as error:
+                self.simulacion = True
+                self.sensor = None
+
+                mensaje = (
+                    "[Calidad de aire] No se pudo iniciar el sensor real. "
+                    f"Se utilizará simulación. Detalle: {error}"
+                )
+
+                print(mensaje)
+                self.error_lectura.emit(mensaje)
 
     def run(self):
         while self.corriendo:
             if self.simulacion:
-                variacion = random.uniform(-15.0, 25.0) 
-                self.valor_simulado += variacion
-                if self.valor_simulado > 400.0:
-                    self.valor_simulado -= 150.0
-                elif self.valor_simulado < 0.0:
-                    self.valor_simulado += 50.0
-                self.datos_actualizados.emit(self.valor_simulado)
-            self.msleep(2000)
+                self._leer_simulacion()
+                intervalo_ms = 2000
+            else:
+                self._leer_sensor_real()
+                intervalo_ms = 10000
+
+            self.msleep(intervalo_ms)
+
+    def _leer_simulacion(self):
+        variacion = random.uniform(-15.0, 25.0)
+        self.valor_simulado += variacion
+
+        if self.valor_simulado > 400.0:
+            self.valor_simulado -= 150.0
+        elif self.valor_simulado < 0.0:
+            self.valor_simulado += 50.0
+
+        self.datos_actualizados.emit(self.valor_simulado)
+        print(f"[Sensor Calidad Aire] Simulación - AQI: {self.valor_simulado:.1f} ppm")
+        enviar_lectura("calidad_aire", self.valor_simulado)
+
+    def _leer_sensor_real(self):
+        if self.sensor is None:
+            return
+
+        try:
+            datos = self.sensor.leer_y_enviar()
+            ppm = float(datos["ppm"])
+
+            self.datos_actualizados.emit(ppm)
+
+            print(
+                f"[Sensor Calidad Aire] Real - "
+                f"Voltaje: {datos['voltaje']:.3f} V | "
+                f"Estimación: {ppm:.1f} ppm"
+            )
+            enviar_lectura("calidad_aire", ppm)
+
+        except Exception as error:
+            mensaje = f"Error leyendo MQ-135: {error}"
+            print(f"[Calidad de aire] {mensaje}")
+            self.error_lectura.emit(mensaje)
 
     def detener(self):
         self.corriendo = False
@@ -102,11 +208,11 @@ class PanelHumedad(QFrame):
                 'trail': random.uniform(10, 50)
             })
             
-        self.worker = SensorHumedadWorker()
+        self.worker = SensorHumedadWorker(simulacion=False)
         self.worker.datos_actualizados.connect(self.actualizar_target)
         self.worker.start()
 
-        self.worker_ca = SensorCalidadWorker()
+        self.worker_ca = SensorCalidadWorker(simulacion=False)
         self.worker_ca.datos_actualizados.connect(self.actualizar_target_ca)
         self.worker_ca.start()
         
