@@ -72,7 +72,6 @@ class AforoSensorThread(QThread):
     def run_simulation(self):
         self.log_mensaje.emit("Iniciando simulación de aforo...")
         while self.running:
-            # Límites de aforo simulados acordes a la nueva escala (de 5 a 40)
             aforo_simulado = random.randint(5, 38)
             self.aforo_cambiado.emit(aforo_simulado)
             self.log_mensaje.emit(f"Simulación - Aforo actualizado: {aforo_simulado} personas")
@@ -138,31 +137,35 @@ class WidgetAforo(QWidget):
     def on_sensor_log(self, mensaje):
         print(f"[Aforo Sensor] {mensaje}")
 
+    def get_status_info(self, val):
+        # Reglas extraídas del código React provisto:
+        # Capacidad Máxima (espera/factor 1.20, comedor/factor 1.40, etc.)
+        # Con capacidad máxima de diseño establecida en 25 (conteo 5 a 5, límite de 35+):
+        # IO = val / 25
+        # IO <= 0.80 (val <= 20) -> Muy Adecuado (Green)
+        # IO <= 1.00 (val <= 25) -> Adecuado (Turquoise/Greenish-blue)
+        # IO <= 1.20 (val <= 30) -> Regular/Límite (Yellow)
+        # IO <= 1.40 (val <= 35) -> Inadecuado (Orange)
+        # IO > 1.40 (val > 35) -> Riesgo Operativo (Red)
+        if val <= 20:
+            return "Muy Adecuado", QColor("#2ECC71") # Verde
+        elif val <= 25:
+            return "Adecuado", QColor("#1ABC9C") # Verde Turquesa
+        elif val <= 30:
+            return "Regular (Límite)", QColor("#F1C40F") # Amarillo
+        elif val <= 35:
+            return "Inadecuado", QColor("#E67E22") # Naranja
+        else:
+            return "Riesgo Operativo", QColor("#E74C3C") # Rojo
+
     def get_color_for_index(self, index):
-        # Gradiente semáforo dinámico ajustado para 7 columnas (índice 0 a 6)
-        # Verde (HSL 120) a Rojo (HSL 0)
-        hue = int(120 - index * 20)
-        if hue < 0:
-            hue = 0
-        return QColor.fromHsl(hue, 220, 115)
+        val = (index + 1) * 5
+        status_text, status_color = self.get_status_info(val)
+        return status_color
 
     def get_color_for_value(self, value):
-        idx = (value - 5.0) / 5.0
-        if idx < 0.0:
-            idx = 0.0
-        elif idx > 6.0:
-            idx = 6.0
-        return self.get_color_for_index(idx)
-
-    def get_status_info(self, val):
-        if val <= 15:
-            return "El espacio es cómodo", QColor("#10B981") 
-        elif val <= 25:
-            return "Aglomeración aumentando", QColor("#D97706") 
-        elif val <= 30:
-            return "Límite de aforo próximo", QColor("#EA580C") 
-        else:
-            return "Peligro de sobreaforo", QColor("#EF4444") 
+        status_text, status_color = self.get_status_info(value)
+        return status_color
 
     def value_to_x(self, val):
         w = self.width()
@@ -251,9 +254,9 @@ class WidgetAforo(QWidget):
         val_x = self.value_to_x(self._animated_aforo)
         if self._animated_aforo > 0:
             grad_ruler = QLinearGradient(self.x_start - 20, y_ruler, val_x, y_ruler)
-            grad_ruler.setColorAt(0.0, QColor("#10B981"))
+            grad_ruler.setColorAt(0.0, QColor("#2ECC71"))
             if self._animated_aforo > 20:
-                grad_ruler.setColorAt(0.5, QColor("#FBBF24"))
+                grad_ruler.setColorAt(0.5, QColor("#F1C40F"))
             grad_ruler.setColorAt(1.0, self.get_color_for_value(self._animated_aforo))
             
             pen_progress = QPen(QBrush(grad_ruler), 4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
@@ -300,17 +303,15 @@ class WidgetAforo(QWidget):
         painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, text_val)
 
     def draw_person_group(self, painter, col_x, y_group, color, group_index):
-        # group_index de 0 a 6. Cada grupo representa un tramo de 5 unidades.
         base_val = group_index * 5
         
-        # Distribución de 5 personas en pirámide tridimensional
-        # Dibujamos de atrás hacia adelante: Back-Left, Back-Right, Back-Center, Front-Left, Front-Right.
+        # Distribución de 5 personas en pirámide
         offsets = [
             (-15, -8),  # 1. Back-Left
             (15, -8),   # 2. Back-Right
             (0, -14),   # 3. Back-Center
-            (-8, 6),    # 4. Front-Left (Superpuesto)
-            (8, 6)      # 5. Front-Right (Superpuesto)
+            (-8, 6),    # 4. Front-Left
+            (8, 6)      # 5. Front-Right
         ]
         
         for j in range(5):
@@ -318,7 +319,7 @@ class WidgetAforo(QWidget):
             x = col_x + dx
             y = y_group + dy
             
-            # Cada figura en el grupo representa exactamente 1 persona de aforo
+            # Relación de 1 a 1: cada muñeco representa exactamente 1 persona de aforo
             threshold = base_val + (j + 1)
             prev_threshold = threshold - 1
             

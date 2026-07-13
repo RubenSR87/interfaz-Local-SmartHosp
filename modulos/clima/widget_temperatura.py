@@ -101,10 +101,10 @@ class WidgetTemperatura(QWidget):
         self._temp = 22.0
         self._animated_temp = 22.0
         
-        # Rutas de imágenes fijas para el bulbo dinámico
-        self.img_path_cold = "img/cold.png"
-        self.img_path_chill = "img/chill.jpg"
-        self.img_path_hot = "img/hot.jpeg"
+        # Rutas actualizadas de las imágenes en la carpeta img/temperatura
+        self.img_path_cold = "img/temperatura/cold.png"
+        self.img_path_chill = "img/temperatura/chill.jpg"
+        self.img_path_hot = "img/temperatura/hot.jpeg"
         
         # Cachear pixmaps en el constructor para alto rendimiento en la Pi 5
         self.pixmap_cold = QPixmap(self.img_path_cold)
@@ -159,17 +159,22 @@ class WidgetTemperatura(QWidget):
         return QColor.fromHsl(hue, 220, 115)
 
     def get_status_info(self, temp):
-        # Estados clínicos/confort en pasillos del hospital
-        if temp < 18.0:
-            return "Frío excesivo", QColor("#3B82F6") 
-        elif temp < 20.0:
-            return "Ambiente fresco", QColor("#06B6D4") 
-        elif temp <= 24.0:
-            return "Temperatura ideal", QColor("#10B981") 
-        elif temp <= 27.0:
-            return "Ambiente templado", QColor("#F59E0B") 
+        # Reglas para 'corredor' obtenidas del archivo React provisto:
+        # Excelente (5): [22, 23.9] -> Verde Turquesa
+        # Bueno (4): [20, 21.9], [24, 25.9] -> Verde Clásico
+        # Regular (3): [18, 19.9], [26, 27.9] -> Amarillo/Ámbar
+        # Malo (2): [16, 17.9], [28, 30] -> Naranja
+        # Muy Malo (1): <-inf, 15.9] y [30.1, +inf> -> Rojo
+        if 22.0 <= temp <= 23.9:
+            return "Excelente", QColor("#1ABC9C") 
+        elif (20.0 <= temp < 22.0) or (23.9 < temp <= 25.9):
+            return "Bueno", QColor("#2ECC71") 
+        elif (18.0 <= temp < 20.0) or (25.9 < temp <= 27.9):
+            return "Regular", QColor("#F1C40F") 
+        elif (16.0 <= temp < 18.0) or (27.9 < temp <= 30.0):
+            return "Malo", QColor("#E67E22") 
         else:
-            return "Calor excesivo", QColor("#EF4444") 
+            return "Muy Malo", QColor("#E74C3C") 
 
     def temp_to_x(self, temp):
         w = self.width()
@@ -196,7 +201,7 @@ class WidgetTemperatura(QWidget):
         w = self.width()
         h = self.height()
         
-        # 1. Dibujar Panel de Texto Izquierdo (Reactivo)
+        # 1. Dibujar Panel de Texto Izquierdo (Reactivo y Limpio)
         status_text, status_color = self.get_status_info(self._animated_temp)
         
         font_title = QFont("Segoe UI", 8, QFont.Weight.Bold)
@@ -207,18 +212,16 @@ class WidgetTemperatura(QWidget):
         font_number = QFont("Segoe UI", 32, QFont.Weight.Bold)
         painter.setFont(font_number)
         painter.setPen(status_color)
-        painter.drawText(QRectF(25, 42, 170, 48), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{self._animated_temp:.1f} °C")
+        painter.drawText(QRectF(25, 45, 170, 50), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{self._animated_temp:.1f} °C")
         
-        font_sub = QFont("Segoe UI", 8, QFont.Weight.Medium)
-        painter.setFont(font_sub)
-        painter.setPen(QColor("#6B7280"))
-        painter.drawText(QRectF(25, 92, 170, 18), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "Sensor DHT11 (Pasillo)")
+        # Se removió la línea con información técnica ("Sensor DHT11 Pasillo")
         
         font_desc = QFont("Segoe UI", 10, QFont.Weight.Bold)
         font_desc.setItalic(True)
         painter.setFont(font_desc)
         painter.setPen(status_color)
-        painter.drawText(QRectF(25, 116, 170, 36), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, status_text)
+        # Reubicado a y=110 debido al espacio libre del texto técnico
+        painter.drawText(QRectF(25, 110, 170, 36), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, status_text)
         
         pen_divider = QPen(QColor("#E5E7EB"), 1.5)
         painter.setPen(pen_divider)
@@ -395,7 +398,6 @@ class WidgetTemperatura(QWidget):
             
         # Dibujo Vectorial Fijo e Impecable para las referencias de escala
         if icon_type == "cold":
-            # Copo de Nieve vectorial azul sutil
             painter.setPen(QPen(QColor("#3B82F6"), 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             for i in range(6):
                 angle = i * 60
@@ -406,7 +408,6 @@ class WidgetTemperatura(QWidget):
                 painter.drawLine(cx + dx_tick, cy + dy_tick, cx + dx_tick + 2 * math.cos(math.radians(angle+45)), cy + dy_tick + 2 * math.sin(math.radians(angle+45)))
                 painter.drawLine(cx + dx_tick, cy + dy_tick, cx + dx_tick + 2 * math.cos(math.radians(angle-45)), cy + dy_tick + 2 * math.sin(math.radians(angle-45)))
         elif icon_type == "comfort":
-            # Hoja vectorial verde sutil
             painter.setPen(QPen(QColor("#10B981"), 1.8))
             path = QPainterPath()
             path.moveTo(cx - 6, cy + 6)
@@ -415,7 +416,6 @@ class WidgetTemperatura(QWidget):
             painter.setBrush(QBrush(QColor(16, 185, 129, 30)))
             painter.drawPath(path)
         else:
-            # Sol vectorial naranja/rojo sutil
             painter.setPen(QPen(QColor("#EF4444"), 1.6))
             painter.setBrush(QBrush(QColor(239, 68, 68, 30)))
             painter.drawEllipse(cx - 5, cy - 5, 10, 10)
