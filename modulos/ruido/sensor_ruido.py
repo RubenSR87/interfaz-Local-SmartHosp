@@ -1,6 +1,10 @@
 import sounddevice as sd
 import numpy as np
 import time
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from modulos.supabase_client import enviar_lectura
 
 audio_buffer = []
 
@@ -36,13 +40,14 @@ try:
                 db_spl = 0.0
                 
             ruido_str = f"{db_spl:.1f} dB"
+            enviar_lectura("ruido", db_spl)
         else:
             ruido_str = "-- dB"
         
         print(f"Nivel de Ruido Ambiental: {ruido_str}")
         
         # intervalo de actualizacion del sensor
-        time.sleep(2.5)
+        time.sleep(10.0)
 
 except KeyboardInterrupt:
     print("\nLectura detenida.")
