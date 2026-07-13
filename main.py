@@ -1,6 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QLabel
 from PySide6.QtCore import Qt
+from modulos.aforo.widget_aforo import WidgetAforo
 
 class PlaceholderWidget(QWidget):
     def __init__(self, titulo):
@@ -57,7 +58,7 @@ class DashboardHospital(QMainWindow):
         self.mod_ruido = PlaceholderWidget("Ruido\n(Superior Central)")
         self.mod_humedad_aire = PlaceholderWidget("Humedad y Aire\n(Superior Derecho)")
         self.mod_temperatura = PlaceholderWidget("Temperatura\n(Central Inferior)")
-        self.mod_personas = PlaceholderWidget("Conteo de Personas\n(Horizontal Inferior)")
+        self.mod_personas = WidgetAforo()
         
         layout_grid.addWidget(self.mod_iluminacion, 0, 0, 2, 1)
         layout_grid.addWidget(self.mod_ruido, 0, 1, 1, 1)
@@ -73,6 +74,11 @@ class DashboardHospital(QMainWindow):
         layout_grid.setRowStretch(1, 2) 
         layout_grid.setRowStretch(2, 2) 
 
+    def closeEvent(self, event):
+        # Asegurar la correcta finalización de hilos en los widgets hijos
+        if hasattr(self, 'mod_personas') and hasattr(self.mod_personas, 'closeEvent'):
+            self.mod_personas.closeEvent(event)
+        super().closeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
