@@ -80,6 +80,11 @@ class WidgetRuido(QFrame):
         
         self.fase_onda = 0.0
         
+        # Cargar imagen de megafono provista por el usuario
+        base_path = Path(__file__).parent / "img"
+        base_path.mkdir(parents=True, exist_ok=True)
+        self.img_megafono = QImage(str(base_path / "megafono.png"))
+        
         self.worker = SensorRuidoWorker(simulacion=False)
         self.worker.datos_actualizados.connect(self.actualizar_target)
         self.worker.start()
@@ -211,12 +216,16 @@ class WidgetRuido(QFrame):
         painter.setPen(QPen(color_base, 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawLine(int(x_barra), int(y_progreso), int(x_barra), int(y_end))
         
-        # 6. ICONO (Emoji dinámico pegado a la barra)
+        # 6. ICONO (Imagen PNG pegada a la barra)
         rect_icono = QRectF(w - 75, y_progreso - 20, 40, 40)
         
-        painter.setFont(QFont("Segoe UI Emoji", 24))
-        painter.setPen(QColor(0, 0, 0))
-        painter.drawText(rect_icono, Qt.AlignmentFlag.AlignCenter, emoji)
+        if not self.img_megafono.isNull():
+            painter.drawImage(rect_icono, self.img_megafono)
+        else:
+            # Fallback en caso de que falte la imagen
+            painter.setFont(QFont("Segoe UI Emoji", 24))
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(rect_icono, Qt.AlignmentFlag.AlignCenter, "📢")
 
     def closeEvent(self, event):
         self.worker.detener()

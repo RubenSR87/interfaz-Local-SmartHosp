@@ -198,6 +198,14 @@ class PanelHumedad(QFrame):
         self.img_sol = QImage(str(base_path / "sol.png"))
         self.img_nube = QImage(str(base_path / "nube.png"))
 
+        # Iconos Calidad de Aire (PNGs dinámicos desde subcarpeta img)
+        ruta_img_ca = base_path / "img"
+        ruta_img_ca.mkdir(parents=True, exist_ok=True)
+        self.img_ca_bueno = QImage(str(ruta_img_ca / "ca_bueno.png"))
+        self.img_ca_moderado = QImage(str(ruta_img_ca / "ca_moderado.png"))
+        self.img_ca_malo = QImage(str(ruta_img_ca / "ca_malo.png"))
+        self.img_ca_critico = QImage(str(ruta_img_ca / "ca_critico.png"))
+
         # Generar gotas de lluvia aleatorias
         for _ in range(80):
             self.gotas_agua.append({
@@ -377,10 +385,10 @@ class PanelHumedad(QFrame):
         painter.drawEllipse(QRectF(cx - 3, cy - 1, 6, 6))
         
         texto_val = f"{int(self.anim_valor)}%"
-        painter.setFont(QFont("Segoe UI", 48, QFont.Weight.Bold))
-        rect_texto = QRectF(margin_x, y_barra - 80, ancho_barra, 60)
+        painter.setFont(QFont("Segoe UI", 36, QFont.Weight.Bold))
+        rect_texto = QRectF(margin_x, y_barra - 65, ancho_barra, 50)
         
-        painter.setPen(QColor(0, 0, 0))
+        painter.setPen(color_linea) # Usar el color dinámico de la línea (celeste/azul oscuro)
         painter.drawText(rect_texto, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom, texto_val)
         
         # Iconos (No dibujar porque cambian el fondo limpio o se ven raros en blanco)
@@ -392,20 +400,24 @@ class PanelHumedad(QFrame):
         aqi = int(self.anim_valor_ca)
         if aqi <= 50:
             estado_ca = "Bueno"
-            color_ca = QColor(34, 197, 94)  # Verde
-            icono_ca = "🍃"
+            color_ca = QColor(135, 206, 235)  # Celeste pastel
+            img_ca = self.img_ca_bueno
+            fallback_emoji = "🍃"
         elif aqi <= 100:
             estado_ca = "Moderado"
             color_ca = QColor(234, 179, 8)  # Amarillo
-            icono_ca = "☁️"
+            img_ca = self.img_ca_moderado
+            fallback_emoji = "☁️"
         elif aqi <= 300:
             estado_ca = "Malo"
             color_ca = QColor(249, 115, 22)  # Naranja
-            icono_ca = "🌫️"
+            img_ca = self.img_ca_malo
+            fallback_emoji = "🌫️"
         else:
             estado_ca = "Crítico"
-            color_ca = QColor(220, 38, 38)   # Rojo
-            icono_ca = "☣️"
+            color_ca = QColor(239, 115, 115)  # Rojo pálido/claro
+            img_ca = self.img_ca_critico
+            fallback_emoji = "☣️"
 
         # Título Calidad
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
@@ -436,13 +448,14 @@ class PanelHumedad(QFrame):
         painter.drawEllipse(QRectF(x_barra_v - 5, y_actual_v - 5, 10, 10))
         
         # Valor AQI (ppm)
-        fuente_val = QFont("Segoe UI", 24, QFont.Weight.Bold)
-        if w > 350: fuente_val = QFont("Segoe UI", 28, QFont.Weight.Bold)
+        fuente_val = QFont("Segoe UI", 14, QFont.Weight.Bold)
+        if w > 350: fuente_val = QFont("Segoe UI", 16, QFont.Weight.Bold)
         painter.setFont(fuente_val)
         
-        ancho_val = margin_der - 30 # Usar espacio disponible
-        rect_val_ca = QRectF(x_barra_v - ancho_val - 10, y_end_v - 15, ancho_val, 40)
-        painter.setPen(QColor(0, 0, 0))
+        # Reducimos el ancho para que no choque con la barra de humedad
+        ancho_val = min(100, margin_der - 40)
+        rect_val_ca = QRectF(x_barra_v - ancho_val - 20, y_end_v - 15, ancho_val, 40)
+        painter.setPen(color_ca) # Usar el color del estado en lugar de negro
         painter.drawText(rect_val_ca, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, f"{aqi} ppm")
 
         # Estado
@@ -451,12 +464,16 @@ class PanelHumedad(QFrame):
         painter.setPen(color_ca)
         painter.drawText(rect_est_ca, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, estado_ca)
         
-        # EMOJI dinámico
-        painter.setFont(QFont("Segoe UI Emoji", 24))
-        painter.setPen(QColor(0, 0, 0, 150))
-        painter.drawText(QRectF(x_barra_v - 20, y_actual_v - 45, 40, 40).translated(1, 1), Qt.AlignmentFlag.AlignCenter, icono_ca)
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(QRectF(x_barra_v - 20, y_actual_v - 45, 40, 40), Qt.AlignmentFlag.AlignCenter, icono_ca)
+        # EMOJI dinámico -> Imagen dinámica
+        rect_icono_ca = QRectF(x_barra_v - 20, y_actual_v - 45, 40, 40)
+        if not img_ca.isNull():
+            painter.drawImage(rect_icono_ca, img_ca)
+        else:
+            painter.setFont(QFont("Segoe UI Emoji", 24))
+            painter.setPen(QColor(0, 0, 0, 150))
+            painter.drawText(rect_icono_ca.translated(1, 1), Qt.AlignmentFlag.AlignCenter, fallback_emoji)
+            painter.setPen(QColor(255, 255, 255))
+            painter.drawText(rect_icono_ca, Qt.AlignmentFlag.AlignCenter, fallback_emoji)
 
 
     def closeEvent(self, event):
