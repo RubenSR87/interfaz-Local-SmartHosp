@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import random
+import math
 from PySide6.QtCore import QThread, Signal, Qt, QRectF, QPointF, QEasingCurve, QPropertyAnimation, Property
 from PySide6.QtWidgets import QWidget, QStyle, QStyleOption
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QPainterPath, QLinearGradient, QRadialGradient, QFont
@@ -102,7 +103,7 @@ class WidgetAforo(QWidget):
         self._aforo = 0
         self._animated_aforo = 0.0
         
-        # Nuevas coordenadas de diseño adaptadas para panel de texto izquierdo
+        # Coordenadas de diseño adaptadas para panel de texto izquierdo
         self.x_start = 245
         self.margin_right = 45
         
@@ -138,7 +139,6 @@ class WidgetAforo(QWidget):
 
     def get_color_for_index(self, index):
         # Gradiente semáforo dinámico (Verde -> Amarillo/Naranja -> Rojo)
-        # index de 0 a 10 (11 elementos)
         hue = int(120 - index * 12)
         if hue < 0:
             hue = 0
@@ -153,15 +153,14 @@ class WidgetAforo(QWidget):
         return self.get_color_for_index(idx)
 
     def get_status_info(self, val):
-        # Estados reactivos según aforo
         if val <= 30:
-            return "El espacio es cómodo", QColor("#10B981") # Verde
+            return "El espacio es cómodo", QColor("#10B981") 
         elif val <= 80:
-            return "Aglomeración aumentando", QColor("#D97706") # Amarillo/Naranja
+            return "Aglomeración aumentando", QColor("#D97706") 
         elif val <= 100:
-            return "Límite de aforo próximo", QColor("#EA580C") # Rojo
+            return "Límite de aforo próximo", QColor("#EA580C") 
         else:
-            return "Peligro de sobreaforo", QColor("#EF4444") # Crítico / Rojo intenso
+            return "Peligro de sobreaforo", QColor("#EF4444") 
 
     def value_to_x(self, val):
         w = self.width()
@@ -190,35 +189,30 @@ class WidgetAforo(QWidget):
         w = self.width()
         h = self.height()
         
-        # 1. Dibujar Panel de Texto Izquierdo (Reactivo)
+        # 1. Dibujar Panel de Texto Izquierdo
         status_text, status_color = self.get_status_info(self._animated_aforo)
         
-        # Título
         font_title = QFont("Segoe UI", 8, QFont.Weight.Bold)
         painter.setFont(font_title)
         painter.setPen(QColor("#9CA3AF"))
         painter.drawText(QRectF(25, 20, 170, 20), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "CONTROL DE AFORO")
         
-        # Número Grande
         font_number = QFont("Segoe UI", 32, QFont.Weight.Bold)
         painter.setFont(font_number)
         painter.setPen(status_color)
         painter.drawText(QRectF(25, 42, 170, 48), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, f"{int(self._animated_aforo)}")
         
-        # Subtítulo (Personas registradas)
         font_sub = QFont("Segoe UI", 8, QFont.Weight.Medium)
         painter.setFont(font_sub)
         painter.setPen(QColor("#6B7280"))
         painter.drawText(QRectF(25, 92, 170, 18), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "Personas en sala")
         
-        # Descripción Reactiva (WordWrap habilitado para mensajes largos)
         font_desc = QFont("Segoe UI", 10, QFont.Weight.Bold)
         font_desc.setItalic(True)
         painter.setFont(font_desc)
         painter.setPen(status_color)
         painter.drawText(QRectF(25, 116, 170, 36), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, status_text)
         
-        # Divider Line entre texto y gráficos
         pen_divider = QPen(QColor("#E5E7EB"), 1.5)
         painter.setPen(pen_divider)
         painter.drawLine(210, 15, 210, 155)
@@ -227,12 +221,10 @@ class WidgetAforo(QWidget):
         y_ruler = 45
         spacing = (w - self.x_start - self.margin_right) / 10.0
         
-        # Línea base de la regla
         pen_ruler = QPen(QColor("#E5E7EB"), 2)
         painter.setPen(pen_ruler)
         painter.drawLine(self.x_start - 20, y_ruler, w - self.margin_right + 20, y_ruler)
         
-        # Ticks y etiquetas
         font_labels = QFont("Segoe UI", 9, QFont.Weight.Bold)
         painter.setFont(font_labels)
         
@@ -240,11 +232,9 @@ class WidgetAforo(QWidget):
             col_x = self.x_start + i * spacing
             val = (i + 1) * 10
             
-            # Marca física
             painter.setPen(QPen(QColor("#9CA3AF"), 1.5))
             painter.drawLine(col_x, y_ruler, col_x, y_ruler + 6)
             
-            # Etiqueta
             label_text = f"{val}+" if i == 10 else f"{val}"
             
             is_active = self._animated_aforo >= val
@@ -271,24 +261,12 @@ class WidgetAforo(QWidget):
         # Indicador flotante
         self.draw_floating_badge(painter, val_x)
         
-        # Figuras vectoriales de las personas
-        y_head = 85
-        y_shoulder = 112
-        
+        # Dibujar Agrupaciones de Personas (4 por columna)
+        y_group = 120
         for i in range(11):
             col_x = self.x_start + i * spacing
-            val = (i + 1) * 10
-            prev_val = val - 10
-            
-            if self._animated_aforo >= val:
-                activity = 1.0
-            elif self._animated_aforo <= prev_val:
-                activity = 0.0
-            else:
-                activity = (self._animated_aforo - prev_val) / 10.0
-                
             color = self.get_color_for_index(i)
-            self.draw_person(painter, col_x, y_head, y_shoulder, color, activity)
+            self.draw_person_group(painter, col_x, y_group, color, i)
             
         painter.end()
 
@@ -319,44 +297,112 @@ class WidgetAforo(QWidget):
         text_val = f"{int(self._animated_aforo)}"
         painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, text_val)
 
-    def draw_person(self, painter, col_x, y_head, y_shoulder, color, activity):
-        inactive_color = QColor("#E2E8F0") 
+    def draw_person_group(self, painter, col_x, y_group, color, group_index):
+        # group_index de 0 a 10. Cada grupo maneja un tramo de 10 personas.
+        # Por ejemplo: el grupo 0 maneja el tramo de 0 a 10.
+        base_val = group_index * 10
         
+        # Distribución de 4 personas de demostración (Estilo pirámide de la imagen)
+        # Dibujamos de atrás hacia adelante para que el overlap sea correcto.
+        # Orden de dibujado: Back-Left, Back-Right, Back-Center, Front-Center.
+        offsets = [
+            (-13, -7),  # 1. Back-Left
+            (13, -7),   # 2. Back-Right
+            (0, -13),   # 3. Back-Center
+            (0, 7)      # 4. Front-Center (Superpuesto encima de todos)
+        ]
+        
+        for j in range(4):
+            dx, dy = offsets[j]
+            x = col_x + dx
+            y = y_group + dy
+            
+            # Cada persona del grupo representa 2.5 unidades de aforo (10 / 4 = 2.5)
+            threshold = base_val + (j + 1) * 2.5
+            prev_threshold = threshold - 2.5
+            
+            # Calcular nivel de actividad (para la animación de encendido suave e individual)
+            if self._animated_aforo >= threshold:
+                activity = 1.0
+            elif self._animated_aforo <= prev_threshold:
+                activity = 0.0
+            else:
+                activity = (self._animated_aforo - prev_threshold) / 2.5
+                
+            self.draw_individual_person(painter, x, y, color, activity)
+
+    def draw_individual_person(self, painter, x, y, color, activity):
+        # Color base gris sutil para cuando están "apagados"
+        inactive_color = QColor("#CBD5E1")
+        
+        # 1. Nivel de transparencia reactivo:
+        # Inactivo: transparencia menor pero notable (18% de opacidad)
+        # Activo: completamente opaco (100% de opacidad)
+        opacity = 0.18 + 0.82 * activity
+        
+        # 2. Animación de "Pop" (Escalado):
+        # Cuando pasa de apagado a encendido, hace un crecimiento y encogimiento elástico (bounce)
+        # basado en la función seno del nivel de actividad transicional.
+        scale = 1.0 + 0.24 * math.sin(activity * math.pi)
+        
+        painter.save()
+        painter.translate(x, y)
+        painter.scale(scale, scale)
+        
+        # A. Máscara de silueta blanca:
+        # Esto genera el borde de recorte blanco alrededor de cada figura permitiendo
+        # un solapamiento perfecto tridimensional exactamente como en la imagen de referencia.
+        painter.setPen(QPen(QColor("#FFFFFF"), 4.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setBrush(QBrush(QColor("#FFFFFF")))
+        
+        # Cabeza
+        painter.drawEllipse(-6, -18, 12, 12)
+        # Torso
+        mask_path = QPainterPath()
+        mask_path.moveTo(-11, 16)
+        mask_path.lineTo(-11, 9)
+        mask_path.arcTo(-11, 0, 22, 18, 180, -180)
+        mask_path.lineTo(11, 16)
+        mask_path.closeSubpath()
+        painter.drawPath(mask_path)
+        
+        # B. Relleno con Resplandor (Glow) si está activo
         if activity > 0:
-            radial_grad = QRadialGradient(col_x, y_head + 9, 9)
-            radial_grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), int(60 * activity)))
-            radial_grad.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
-            painter.setBrush(QBrush(radial_grad))
+            # Resplandor de cabeza
+            rad_grad = QRadialGradient(0, -12, 6)
+            rad_grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), int(60 * activity)))
+            rad_grad.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+            painter.setBrush(QBrush(rad_grad))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(col_x - 12, y_head - 3, 24, 24)
+            painter.drawEllipse(-8, -20, 16, 16)
             
-            linear_grad = QLinearGradient(col_x, y_shoulder, col_x, y_shoulder + 25)
-            linear_grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), int(70 * activity)))
-            linear_grad.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+            # Gradiente de hombros
+            lin_grad = QLinearGradient(0, 0, 0, 16)
+            lin_grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), int(70 * activity)))
+            lin_grad.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
+            painter.setBrush(QBrush(lin_grad))
+            painter.drawPath(mask_path)
             
-            body_path = QPainterPath()
-            body_path.moveTo(col_x - 18, y_shoulder + 25)
-            body_path.lineTo(col_x - 18, y_shoulder + 14)
-            body_path.arcTo(col_x - 18, y_shoulder, 36, 28, 180, -180)
-            body_path.lineTo(col_x + 18, y_shoulder + 25)
-            body_path.closeSubpath()
-            
-            painter.setBrush(QBrush(linear_grad))
-            painter.drawPath(body_path)
-            
+        # C. Dibujo del contorno final (se mezcla el color según la actividad)
         r = int(inactive_color.red() + (color.red() - inactive_color.red()) * activity)
         g = int(inactive_color.green() + (color.green() - inactive_color.green()) * activity)
         b = int(inactive_color.blue() + (color.blue() - inactive_color.blue()) * activity)
-        pen_color = QColor(r, g, b)
+        pen_c = QColor(r, g, b)
+        pen_c.setAlpha(int(255 * opacity)) # Aplicar opacidad reactiva
         
-        pen_w = 2.0 + 1.0 * activity
-        pen_person = QPen(pen_color, pen_w, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen_person)
+        # Línea ligeramente más gruesa para las figuras encendidas
+        pen_w = 1.6 + 0.6 * activity
+        painter.setPen(QPen(pen_c, pen_w, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         
-        painter.drawEllipse(col_x - 9, y_head, 18, 18)
-        painter.drawLine(col_x, y_head + 18, col_x, y_shoulder)
-        painter.drawArc(col_x - 18, y_shoulder, 36, 28, 0, 180 * 16)
+        # Cabeza
+        painter.drawEllipse(-6, -18, 12, 12)
+        # Cuello
+        painter.drawLine(0, -6, 0, 0)
+        # Hombros
+        painter.drawArc(-11, 0, 22, 18, 0, 180 * 16)
+        
+        painter.restore()
 
     def closeEvent(self, event):
         self.sensor_thread.stop()
