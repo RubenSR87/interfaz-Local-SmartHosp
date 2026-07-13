@@ -3,6 +3,10 @@ import board
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from adafruit_ads1x15.ads1x15 import Pin
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from modulos.supabase_client import enviar_lectura
 
 # constantes de calibracion
 VOLTAJE_ENTRADA = 5.0  # si se trabaja con 3.3V lo cambiamos 
@@ -35,6 +39,7 @@ try:
             ppm = 116.6 * (ratio ** -2.769)
             
             print(f"Voltaje: {voltaje_gas:.3f} V | CO2 Estimado: {ppm:.1f} PPM")
+            enviar_lectura("co2", ppm)
         else:
             print("[Advertencia] Voltaje demasiado bajo, revisa las conexiones.")
 

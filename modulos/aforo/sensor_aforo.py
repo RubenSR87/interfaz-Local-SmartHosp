@@ -1,6 +1,10 @@
 import cv2
 import time
 from ultralytics import YOLO
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from modulos.supabase_client import enviar_lectura
 
 # 1. carga del modelo ia
 print("cargando modelo YOLO.....")
@@ -54,6 +58,7 @@ while True:
         
         print(f"[ {time.strftime('%H:%M:%S')} ] Aforo actualizado: {aforo_actual} personas")
         tiempo_ultima_captura = tiempo_actual
+        enviar_lectura("aforo", aforo_actual)
 
     # --- ZONA DE VISUALIZACIï¿½N CONTINUA ---
     if ultimos_resultados is not None:
