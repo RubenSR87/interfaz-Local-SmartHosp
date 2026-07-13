@@ -3,6 +3,9 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, Q
 from PySide6.QtCore import Qt
 from modulos.aforo.widget_aforo import WidgetAforo
 from modulos.clima.widget_temperatura import WidgetTemperatura
+from modulos.luz.widget_luz import WidgetLuz
+from modulos.hum_ca_aire.widget_hum_ca_aire import WidgetHumCaAire
+from modulos.ruido.widget_ruido import WidgetRuido
 
 class PlaceholderWidget(QWidget):
     def __init__(self, titulo):
@@ -55,9 +58,9 @@ class DashboardHospital(QMainWindow):
         # Margen contra los bordes de la pantalla (4 píxeles)
         layout_grid.setContentsMargins(4, 4, 4, 4) 
         
-        self.mod_iluminacion = PlaceholderWidget("Iluminación\n(Lateral Izquierda)")
-        self.mod_ruido = PlaceholderWidget("Ruido\n(Superior Central)")
-        self.mod_humedad_aire = PlaceholderWidget("Humedad y Aire\n(Superior Derecho)")
+        self.mod_iluminacion = WidgetLuz()
+        self.mod_ruido = WidgetRuido()
+        self.mod_humedad_aire = WidgetHumCaAire()
         self.mod_temperatura = WidgetTemperatura()
         self.mod_personas = WidgetAforo()
         
@@ -81,6 +84,12 @@ class DashboardHospital(QMainWindow):
             self.mod_personas.closeEvent(event)
         if hasattr(self, 'mod_temperatura') and hasattr(self.mod_temperatura, 'closeEvent'):
             self.mod_temperatura.closeEvent(event)
+        if hasattr(self, 'mod_iluminacion') and hasattr(self.mod_iluminacion, 'closeEvent'):
+            self.mod_iluminacion.closeEvent(event)
+        if hasattr(self, 'mod_humedad_aire') and hasattr(self.mod_humedad_aire, 'closeEvent'):
+            self.mod_humedad_aire.closeEvent(event)
+        if hasattr(self, 'mod_ruido') and hasattr(self.mod_ruido, 'closeEvent'):
+            self.mod_ruido.closeEvent(event)
         super().closeEvent(event)
 
 if __name__ == "__main__":
