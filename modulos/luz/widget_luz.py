@@ -76,10 +76,10 @@ class WidgetLuz(QWidget):
         layout_titulos.setSpacing(2)
         
         self.lbl_titulo = QLabel("ILUMINACIÓN")
-        self.lbl_titulo.setStyleSheet("color: white; font-size: 16px; font-weight: bold; background: transparent;")
+        self.lbl_titulo.setStyleSheet("color: #7f8c8d; font-size: 11px; font-weight: bold; background: transparent; letter-spacing: 1px;")
         
         self.lbl_subtitulo = QLabel("Nivel de luz ambiental")
-        self.lbl_subtitulo.setStyleSheet("color: rgba(255, 255, 255, 0.75); font-size: 12px; background: transparent;")
+        self.lbl_subtitulo.setStyleSheet("color: rgba(127, 140, 141, 0.7); font-size: 10px; background: transparent;")
         
         layout_titulos.addWidget(self.lbl_titulo)
         layout_titulos.addWidget(self.lbl_subtitulo)
@@ -87,30 +87,7 @@ class WidgetLuz(QWidget):
         layout_principal.addLayout(layout_titulos)
         layout_principal.addStretch()
         
-        # 2. PARTE INFERIOR: Tarjeta ultra pequeña SÓLO para el estado
-        layout_abajo = QHBoxLayout()
-        layout_abajo.addStretch() 
-        
-        self.panel_datos = QFrame()
-        self.panel_datos.setFixedWidth(110)
-        self.panel_datos.setStyleSheet("""
-            QFrame {
-                background-color: rgba(15, 23, 42, 0.55);
-                border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-            }
-        """)
-        
-        layout_datos = QVBoxLayout(self.panel_datos)
-        layout_datos.setContentsMargins(5, 6, 5, 6) # Muy delgada
-        
-        self.lbl_estado = QLabel("Oscuro")
-        self.lbl_estado.setStyleSheet("color: white; font-size: 13px; font-weight: bold; background: transparent;")
-        self.lbl_estado.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        layout_datos.addWidget(self.lbl_estado)
-        layout_abajo.addWidget(self.panel_datos, alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
-        layout_principal.addLayout(layout_abajo)
+        self.estado_str = "Oscuro"
 
         # --- LÓGICA ANIMACIÓN ---
         self.timer_anim = QTimer(self)
@@ -176,7 +153,7 @@ class WidgetLuz(QWidget):
             else:
                 estado = "Luz baja"
                 
-        self.lbl_estado.setText(estado)
+        self.estado_str = estado
         
         self.update()
 
@@ -190,25 +167,14 @@ class WidgetLuz(QWidget):
         porcentaje = min(1.0, max(0.0, self.anim_lux / self.max_lux))
         is_day = porcentaje >= 0.5
         
-        # 1. FONDO COMPLETO (Amanecer / Cielo)
-        if is_day:
-            f = (porcentaje - 0.5) * 2.0
-            r_bg = int(253 + (251 - 253) * f) 
-            g_bg = int(224 + (146 - 224) * f) 
-            b_bg = int(71 + (60 - 71) * f)    
-        else:
-            f = porcentaje * 2.0
-            r_bg = int(15 + (125 - 15) * f)
-            g_bg = int(23 + (211 - 23) * f)
-            b_bg = int(42 + (252 - 42) * f)
-            
-        color_fondo = QColor(r_bg, g_bg, b_bg)
+        # 1. FONDO COMPLETO (Blanco)
+        color_fondo = QColor(255, 255, 255)
         
         path_fondo_widget = QPainterPath()
         path_fondo_widget.addRoundedRect(QRectF(0, 0, w, h), 8, 8)
         painter.fillPath(path_fondo_widget, color_fondo)
         
-        painter.setPen(QPen(QColor(229, 231, 235, 100), 1))
+        painter.setPen(QPen(QColor(0, 0, 0, 30), 1))
         painter.drawPath(path_fondo_widget)
         
         # 2. ESTRELLAS GLOBALES
@@ -216,10 +182,7 @@ class WidgetLuz(QWidget):
         painter.setClipPath(path_fondo_widget)
         for e in self.estrellas:
             alpha = int(255 * e['vida'])
-            if is_day:
-                painter.setBrush(QColor(255, 255, 255, alpha))
-            else:
-                painter.setBrush(QColor(254, 240, 138, alpha))
+            painter.setBrush(QColor(0, 0, 0, alpha // 3))
             painter.drawEllipse(QRectF(e['x'] * w, e['y'] * h, e['tam'], e['tam']))
         painter.setClipping(False)
 
@@ -235,7 +198,7 @@ class WidgetLuz(QWidget):
         radio_vaso = w_vaso / 2.0
         path_vaso.addRoundedRect(QRectF(x_vaso, y_vaso, w_vaso, h_vaso), radio_vaso, radio_vaso)
         
-        painter.fillPath(path_vaso, QColor(0, 0, 0, 40) if is_day else QColor(255, 255, 255, 20))
+        painter.fillPath(path_vaso, QColor(0, 0, 0, 15))
         
         alto_agua = h_vaso * porcentaje
         y_agua = y_vaso + h_vaso - alto_agua
@@ -245,18 +208,18 @@ class WidgetLuz(QWidget):
         path_agua = path_vaso.intersected(path_agua_rect)
         
         if is_day:
-            c_agua_top = QColor(255, 255, 255, 240)
-            c_agua_bot = QColor(250, 204, 21, 220)
+            c_agua_top = QColor(250, 204, 21, 240)
+            c_agua_bot = QColor(234, 179, 8, 220)
         else:
-            c_agua_top = QColor(125, 211, 252, 240)
-            c_agua_bot = QColor(14, 165, 233, 220)
+            c_agua_top = QColor(14, 165, 233, 240)
+            c_agua_bot = QColor(2, 132, 199, 220)
             
         grad_agua = QLinearGradient(0, y_agua, 0, y_vaso + h_vaso)
         grad_agua.setColorAt(0.0, c_agua_top)
         grad_agua.setColorAt(1.0, c_agua_bot)
         painter.fillPath(path_agua, QBrush(grad_agua))
         
-        painter.setPen(QPen(QColor(255, 255, 255, 120), 2))
+        painter.setPen(QPen(QColor(0, 0, 0, 50), 2))
         painter.drawPath(path_vaso)
 
         # 4. SOL / LUNA
@@ -308,11 +271,11 @@ class WidgetLuz(QWidget):
             painter.drawEllipse(QRectF(x_ind - radio_ind, y_ind - radio_ind, radio_ind*2, radio_ind*2))
             
         else:
-            color_luna = QColor(255, 255, 255)
+            color_luna = QColor(30, 41, 59) # Luna oscura para que contraste con el fondo blanco
             
             grad_glow = QRadialGradient(x_ind, y_ind, radio_ind * 2.5)
-            grad_glow.setColorAt(0.0, QColor(255, 255, 255, 80))
-            grad_glow.setColorAt(1.0, QColor(255, 255, 255, 0))
+            grad_glow.setColorAt(0.0, QColor(30, 41, 59, 80))
+            grad_glow.setColorAt(1.0, QColor(30, 41, 59, 0))
             painter.setBrush(QBrush(grad_glow))
             painter.drawEllipse(QRectF(x_ind - radio_ind*2.5, y_ind - radio_ind*2.5, radio_ind*5, radio_ind*5))
             
@@ -330,28 +293,53 @@ class WidgetLuz(QWidget):
             painter.drawPath(path_creciente)
 
         # 5. TEXTO LUX DENTRO DEL INDICADOR
-        fuente_num = QFont("Segoe UI", 12, QFont.Weight.Bold)
+        fuente_num = QFont("Segoe UI", 14, QFont.Weight.Bold)
         if radio_ind > 35:
-            fuente_num = QFont("Segoe UI", 14, QFont.Weight.Bold)
+            fuente_num = QFont("Segoe UI", 16, QFont.Weight.Bold)
         painter.setFont(fuente_num)
         
         texto_completo = f"{int(self.anim_lux)}\nlux"
         rect_texto = QRectF(x_ind - radio_ind*1.5, y_ind - radio_ind, radio_ind*3, radio_ind*2)
 
-        # Contorno fuerte (sombras múltiples) para asegurar legibilidad suprema
+        # Sombras fuertes para garantizar que resalte
         painter.setPen(QColor(0, 0, 0, 200))
         for dx, dy in [(1,1), (-1,-1), (1,-1), (-1,1), (0,2)]:
             painter.drawText(rect_texto.translated(dx, dy), Qt.AlignmentFlag.AlignCenter, texto_completo)
             
-        # Color del texto frontal
-        if is_day and porcentaje > 0.8:
-            # Sol radiante muy brillante -> Texto oscuro/marrón quemado
-            painter.setPen(QColor("#422006"))
-        else:
-            # Sol normal o Luna -> Texto blanco puro
-            painter.setPen(QColor(255, 255, 255))
-            
+        painter.setPen(QColor(255, 255, 255))
         painter.drawText(rect_texto, Qt.AlignmentFlag.AlignCenter, texto_completo)
+
+        # 6. ESTADO EN UN CUADRO CON COLOR DINÁMICO
+        r_b = int(30 + (245 - 30) * porcentaje)
+        g_b = int(41 + (158 - 41) * porcentaje)
+        b_b = int(59 + (11 - 59) * porcentaje)
+        badge_bg = QColor(r_b, g_b, b_b)
+        
+        if porcentaje < 0.5:
+            text_color = QColor(255, 255, 255)
+        else:
+            text_color = QColor(0, 0, 0)
+            
+        painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        fm = painter.fontMetrics()
+        ancho_texto = fm.horizontalAdvance(self.estado_str)
+        alto_texto = 28
+        
+        # Centrar el badge respecto al indicador de Sol/Luna (x_ind)
+        x_badge = x_ind - (ancho_texto + 24) / 2.0
+        
+        # Asegurar que el badge no se salga por el borde derecho
+        if x_badge + ancho_texto + 24 > w - 10:
+            x_badge = w - (ancho_texto + 24) - 10
+            
+        rect_badge = QRectF(x_badge, h - alto_texto - 15, ancho_texto + 24, alto_texto)
+        
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(badge_bg)
+        painter.drawRoundedRect(rect_badge, alto_texto/2.0, alto_texto/2.0)
+        
+        painter.setPen(text_color)
+        painter.drawText(rect_badge, Qt.AlignmentFlag.AlignCenter, self.estado_str)
 
     def closeEvent(self, event):
         self.worker.detener()

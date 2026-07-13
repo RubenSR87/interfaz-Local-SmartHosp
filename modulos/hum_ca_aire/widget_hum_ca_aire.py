@@ -157,85 +157,30 @@ class PanelHumedad(QFrame):
         h = self.height()
         porcentaje = min(1.0, max(0.0, self.anim_valor / 100.0))
         
-        # --- 1. PAISAJE DE FONDO (Detrás del cristal) ---
-        if porcentaje < 0.4:
-            color_top = QColor("#38BDF8")
-            color_bot = QColor("#BAE6FD")
-            opacidad_nubes = 0.0
-        elif porcentaje < 0.7:
-            f = (porcentaje - 0.4) / 0.3
-            color_top = QColor(int(56 + (148-56)*f), int(189 + (163-189)*f), int(248 + (184-248)*f)) 
-            color_bot = QColor(int(186 + (203-186)*f), int(230 + (213-230)*f), int(253 + (225-253)*f))
-            opacidad_nubes = f
-        else:
-            f = (porcentaje - 0.7) / 0.3
-            color_top = QColor(int(148 + (71-148)*f), int(163 + (85-163)*f), int(184 + (105-184)*f))
-            color_bot = QColor(int(203 + (100-203)*f), int(213 + (116-213)*f), int(225 + (139-225)*f))
-            opacidad_nubes = 1.0
-
-        grad_cielo = QLinearGradient(0, 0, 0, h)
-        grad_cielo.setColorAt(0.0, color_top)
-        grad_cielo.setColorAt(1.0, color_bot)
-        
+        # --- 1. FONDO BLANCO ---
         path_fondo = QPainterPath()
         path_fondo.addRoundedRect(0, 0, w, h, 12, 12)
-        painter.setClipPath(path_fondo) 
+        painter.fillPath(path_fondo, QColor(255, 255, 255))
         
-        if self.img_fondo is not None and not self.img_fondo.isNull():
-            painter.drawImage(QRectF(0, 0, w, h), self.img_fondo)
-            if opacidad_nubes > 0:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(0, 0, 0, int(150 * opacidad_nubes)))
-                painter.drawRect(0, 0, w, h)
-        else:
-            painter.fillPath(path_fondo, QBrush(grad_cielo))
-            
-            if porcentaje < 0.6:
-                f_sol = 1.0 - (porcentaje / 0.6)
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(253, 224, 71, int(255 * f_sol))) 
-                painter.drawEllipse(w * 0.15, h * 0.15, 60, 60)
-                
-            color_montana = QColor("#166534") 
-            if opacidad_nubes > 0:
-                r = int(22 + (30-22)*opacidad_nubes)
-                g = int(101 + (41-101)*opacidad_nubes)
-                b = int(52 + (59-52)*opacidad_nubes)
-                color_montana = QColor(r, g, b)
-                
-            path_montana = QPainterPath()
-            path_montana.moveTo(0, h)
-            path_montana.lineTo(0, h * 0.6)
-            path_montana.quadTo(w * 0.3, h * 0.4, w * 0.6, h * 0.6)
-            path_montana.quadTo(w * 0.8, h * 0.7, w, h * 0.55)
-            path_montana.lineTo(w, h)
-            painter.fillPath(path_montana, QBrush(color_montana))
-
-            color_mont_frente = QColor("#15803D")
-            if opacidad_nubes > 0:
-                r = int(21 + (15-21)*opacidad_nubes)
-                g = int(128 + (23-128)*opacidad_nubes)
-                b = int(61 + (42-61)*opacidad_nubes)
-                color_mont_frente = QColor(r, g, b)
-
-            path_montana2 = QPainterPath()
-            path_montana2.moveTo(0, h)
-            path_montana2.lineTo(0, h * 0.7)
-            path_montana2.quadTo(w * 0.4, h * 0.5, w, h * 0.75)
-            path_montana2.lineTo(w, h)
-            painter.fillPath(path_montana2, QBrush(color_mont_frente))
-
-        # --- 2. LA VENTANA Y SUS EFECTOS ---
-        grosor_marco = 8
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(25, 30, 35)) 
-        painter.drawRect(QRectF(w/2 - grosor_marco/2, 0, grosor_marco, h)) 
-        painter.drawRect(QRectF(0, h/2 - grosor_marco/2, w, grosor_marco)) 
-
+        # --- 2. EFECTOS DE GOTAS Y EMPAÑO ---
+        aqi = self.anim_valor_ca
+        
         if porcentaje > 0.3:
             f_niebla = min(1.0, (porcentaje - 0.3) / 0.7)
+            
+            if aqi > 100:
+                # Lluvia ácida (tonos verdes amarillentos)
+                color_niebla = QColor(132, 204, 22, int(40 * f_niebla))
+                color_rastro = QColor(132, 204, 22, int(60 * f_niebla))
+                color_gota_start = QColor(132, 204, 22, int(80 * f_niebla))
+            else:
+                # Lluvia normal (tonos celestes)
+                color_niebla = QColor(14, 165, 233, int(40 * f_niebla))
+                color_rastro = QColor(14, 165, 233, int(60 * f_niebla))
+                color_gota_start = QColor(14, 165, 233, int(80 * f_niebla))
+                
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(255, 255, 255, int(150 * f_niebla)))
+            painter.setBrush(color_niebla)
             painter.drawRect(0, 0, w, h)
             
             for g in self.gotas_agua:
@@ -243,50 +188,52 @@ class PanelHumedad(QFrame):
                 y = g['y'] * h
                 tam = g['tam']
                 
-                painter.setPen(QPen(QColor(255, 255, 255, int(80 * f_niebla)), tam * 0.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                # Rastro de la gota
+                painter.setPen(QPen(color_rastro, tam * 0.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
                 painter.drawLine(int(x + tam/2), int(y), int(x + tam/2), int(y - g['trail']))
                 
+                # Sombra de la gota
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(0, 0, 0, int(100 * f_niebla)))
+                painter.setBrush(QColor(0, 0, 0, int(40 * f_niebla)))
                 painter.drawEllipse(QRectF(x + 1, y + 2, tam, tam * 1.3))
                 
+                # Cuerpo de la gota (Gradiente)
                 grad_gota = QLinearGradient(x, y, x, y + tam * 1.3)
-                grad_gota.setColorAt(0.0, QColor(0, 0, 0, int(120 * f_niebla))) 
-                grad_gota.setColorAt(1.0, QColor(255, 255, 255, int(220 * f_niebla))) 
+                grad_gota.setColorAt(0.0, color_gota_start) 
+                grad_gota.setColorAt(1.0, QColor(255, 255, 255, int(200 * f_niebla))) 
                 painter.setBrush(grad_gota)
                 painter.drawEllipse(QRectF(x, y, tam, tam * 1.3))
                 
+                # Brillo de la gota
                 painter.setBrush(QColor(255, 255, 255, int(255 * f_niebla)))
                 painter.drawEllipse(QRectF(x + tam*0.25, y + tam*0.15, tam*0.3, tam*0.35))
-
-        if porcentaje < 0.4:
-            f_brillo = 1.0 - (porcentaje / 0.4)
+        elif aqi > 100:
+            # Humo verde clarito si hay mala calidad de aire pero no humedad
+            f_humo = min(1.0, (aqi - 100) / 200.0)
             painter.setPen(Qt.PenStyle.NoPen)
             
-            path_brillo1 = QPainterPath()
-            path_brillo1.moveTo(w*0.1, 0)
-            path_brillo1.lineTo(w*0.35, 0)
-            path_brillo1.lineTo(w*0.05, h)
-            path_brillo1.lineTo(-w*0.2, h)
-            painter.fillPath(path_brillo1, QColor(255, 255, 255, int(40 * f_brillo)))
-            
-            path_brillo2 = QPainterPath()
-            path_brillo2.moveTo(w*0.4, 0)
-            path_brillo2.lineTo(w*0.45, 0)
-            path_brillo2.lineTo(w*0.15, h)
-            path_brillo2.lineTo(w*0.1, h)
-            painter.fillPath(path_brillo2, QColor(255, 255, 255, int(25 * f_brillo)))
+            offset = (self.anim_valor_ca * 0.2) % 100
+            for i in range(3):
+                cx = w * (0.2 + i * 0.3) + math.sin(offset + i) * 30
+                cy = h * 0.5 + math.cos(offset + i) * 30
+                radio = w * 0.45
+                
+                grad = QRadialGradient(cx, cy, radio)
+                grad.setColorAt(0.0, QColor(132, 204, 22, int(40 * f_humo))) # Verde clarito
+                grad.setColorAt(1.0, QColor(132, 204, 22, 0))
+                
+                painter.setBrush(grad)
+                painter.drawEllipse(QRectF(cx - radio, cy - radio, radio*2, radio*2))
 
         # --- 3. INTERFAZ DE HUMEDAD HUD ---
-        margin_x = 25
-        margin_der = 100  # Espacio para el panel derecho de calidad de aire
+        margin_x = 20
+        margin_der = w * 0.35  # Dinámico: 35% del ancho para calidad de aire
+        if margin_der < 100: margin_der = 100
         
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        rect_titulo = QRectF(w - margin_der - 215, 15, 200, 30)
-        painter.setPen(QColor(0, 0, 0, 200)) 
-        painter.drawText(rect_titulo.translated(1, 1), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, "HUMEDAD")
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(rect_titulo, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, "HUMEDAD")
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        rect_titulo = QRectF(margin_x, 15, w * 0.5, 20)
+        painter.setPen(QColor(127, 140, 141)) # Gris
+        painter.drawText(rect_titulo, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, "HUMEDAD")
 
         # BARRA DESLIZADORA HUMEDAD
         y_barra = h * 0.85
@@ -324,48 +271,16 @@ class PanelHumedad(QFrame):
         painter.drawEllipse(QRectF(cx - 3, cy - 1, 6, 6))
         
         texto_val = f"{int(self.anim_valor)}%"
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        rect_texto = QRectF(x_actual - 30, y_barra + 14, 60, 30)
+        painter.setFont(QFont("Segoe UI", 48, QFont.Weight.Bold))
+        rect_texto = QRectF(margin_x, y_barra - 80, ancho_barra, 60)
         
-        painter.setPen(QColor(0, 0, 0, 200)) 
-        for dx, dy in [(1,1), (-1,-1), (1,-1), (-1,1), (0,2)]:
-            painter.drawText(rect_texto.translated(dx, dy), Qt.AlignmentFlag.AlignCenter, texto_val)
+        painter.setPen(QColor(0, 0, 0))
+        painter.drawText(rect_texto, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom, texto_val)
         
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(rect_texto, Qt.AlignmentFlag.AlignCenter, texto_val)
-        
-        # ICONOS PNG O EMOJIS (Humedad)
-        painter.setFont(QFont("Segoe UI Emoji", 24))
-        
-        # Top-Left (Termómetro rojo + Sol)
-        rect_t_izq = QRectF(15, 15, 40, 40)
-        rect_sol = QRectF(50, 15, 40, 40)
-        if self.img_t_rojo.isNull():
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(rect_t_izq, Qt.AlignmentFlag.AlignCenter, "🌡️")
-        else:
-            painter.drawImage(rect_t_izq, self.img_t_rojo)
-            
-        if self.img_sol.isNull():
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(rect_sol, Qt.AlignmentFlag.AlignCenter, "☀️")
-        else:
-            painter.drawImage(rect_sol, self.img_sol)
-            
-        # Bottom-Right (Termómetro azul + Nube) Ajustado a la izquierda por el panel AQI
-        rect_t_der = QRectF(w - margin_der - 75, y_barra - 45, 40, 40)
-        rect_nube = QRectF(w - margin_der - 40, y_barra - 45, 40, 40)
-        if self.img_t_azul.isNull():
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(rect_t_der, Qt.AlignmentFlag.AlignCenter, "🌡️")
-        else:
-            painter.drawImage(rect_t_der, self.img_t_azul)
-            
-        if self.img_nube.isNull():
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(rect_nube, Qt.AlignmentFlag.AlignCenter, "🌧️")
-        else:
-            painter.drawImage(rect_nube, self.img_nube)
+        # Iconos (No dibujar porque cambian el fondo limpio o se ven raros en blanco)
+        # o podemos dibujar solo texto negro
+        pass
+
 
         # --- 4. INTERFAZ DE CALIDAD DE AIRE (Derecha) ---
         aqi = int(self.anim_valor_ca)
@@ -387,20 +302,19 @@ class PanelHumedad(QFrame):
             icono_ca = "☣️"
 
         # Título Calidad
-        painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        rect_tit_ca = QRectF(w - 90, 15, 80, 40)
-        painter.setPen(QColor(0, 0, 0, 200))
-        painter.drawText(rect_tit_ca.translated(1, 1), Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, "CALIDAD\nAIRE")
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(rect_tit_ca, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, "CALIDAD\nAIRE")
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        rect_tit_ca = QRectF(w - margin_der, 15, margin_der - 10, 30)
+        painter.setPen(QColor(127, 140, 141)) # Gris
+        painter.drawText(rect_tit_ca, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop, "CALIDAD AIRE")
 
         # Barra Vertical
-        x_barra_v = w - 50
+        x_barra_v = w - 40
+
         y_start_v = 65
         y_end_v = h - 60
         alto_barra = y_end_v - y_start_v
         
-        painter.setPen(QPen(QColor(255, 255, 255, 50), 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.setPen(QPen(QColor(0, 0, 0, 30), 6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawLine(int(x_barra_v), int(y_start_v), int(x_barra_v), int(y_end_v))
         
         f_aqi = min(1.0, max(0.0, aqi / 500.0))
@@ -415,21 +329,21 @@ class PanelHumedad(QFrame):
         painter.setBrush(color_ca)
         painter.drawEllipse(QRectF(x_barra_v - 5, y_actual_v - 5, 10, 10))
         
-        # Valor AQI
-        painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        rect_val_ca = QRectF(w - 90, y_end_v + 10, 80, 25)
-        painter.setPen(QColor(0, 0, 0, 200))
-        painter.drawText(rect_val_ca.translated(1, 1), Qt.AlignmentFlag.AlignHCenter, f"{aqi} AQI")
-        painter.setPen(QColor(255, 255, 255))
-        painter.drawText(rect_val_ca, Qt.AlignmentFlag.AlignHCenter, f"{aqi} AQI")
+        # Valor AQI (ppm)
+        fuente_val = QFont("Segoe UI", 24, QFont.Weight.Bold)
+        if w > 350: fuente_val = QFont("Segoe UI", 28, QFont.Weight.Bold)
+        painter.setFont(fuente_val)
+        
+        ancho_val = margin_der - 30 # Usar espacio disponible
+        rect_val_ca = QRectF(x_barra_v - ancho_val - 10, y_end_v - 15, ancho_val, 40)
+        painter.setPen(QColor(0, 0, 0))
+        painter.drawText(rect_val_ca, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, f"{aqi} ppm")
 
         # Estado
-        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        rect_est_ca = QRectF(w - 90, y_end_v + 35, 80, 20)
-        painter.setPen(QColor(0, 0, 0, 200))
-        painter.drawText(rect_est_ca.translated(1, 1), Qt.AlignmentFlag.AlignHCenter, estado_ca)
+        painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        rect_est_ca = QRectF(x_barra_v - ancho_val - 10, y_end_v + 25, ancho_val, 25)
         painter.setPen(color_ca)
-        painter.drawText(rect_est_ca, Qt.AlignmentFlag.AlignHCenter, estado_ca)
+        painter.drawText(rect_est_ca, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom, estado_ca)
         
         # EMOJI dinámico
         painter.setFont(QFont("Segoe UI Emoji", 24))

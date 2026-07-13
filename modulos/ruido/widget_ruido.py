@@ -34,19 +34,13 @@ class SensorRuidoWorker(QThread):
 class WidgetRuido(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: #0F172A; border-radius: 12px;")
+        self.setStyleSheet("background-color: #FFFFFF; border-radius: 12px;")
         
         self.target_valor = 40.0
         self.anim_valor = 40.0
         self.fase_onda = 0.0
         
-        # Cargar iconos PNG si existen
-        base_path = Path(__file__).parent / "img"
-        base_path.mkdir(parents=True, exist_ok=True)
-        self.img_silencioso = QImage(str(base_path / "silencioso.png"))
-        self.img_moderado = QImage(str(base_path / "moderado.png"))
-        self.img_alto = QImage(str(base_path / "alto.png"))
-        self.img_critico = QImage(str(base_path / "critico.png"))
+        self.fase_onda = 0.0
         
         self.worker = SensorRuidoWorker()
         self.worker.datos_actualizados.connect(self.actualizar_target)
@@ -89,31 +83,34 @@ class WidgetRuido(QFrame):
             estado = "Silencioso"
             color_base = QColor(34, 197, 94) # Verde
             emoji = "🤫"
-            img = self.img_silencioso
         elif self.anim_valor < 70:
             estado = "Moderado"
             color_base = QColor(234, 179, 8) # Amarillo
             emoji = "😶"
-            img = self.img_moderado
         elif self.anim_valor < 90:
             estado = "Alto"
             color_base = QColor(249, 115, 22) # Naranja
             emoji = "🗣️"
-            img = self.img_alto
         else:
             estado = "Crítico"
             color_base = QColor(220, 38, 38) # Rojo
             emoji = "📢"
-            img = self.img_critico
             
-        # 1. Dibujar el fondo con un gradiente sutil
-        grad_fondo = QLinearGradient(0, 0, 0, h)
-        grad_fondo.setColorAt(0.0, QColor(15, 23, 42))
-        grad_fondo.setColorAt(1.0, QColor(2, 6, 23))
-        
+        # 1. Dibujar el fondo blanco con borde y sombra suave
         path_fondo = QPainterPath()
-        path_fondo.addRoundedRect(0, 0, w, h, 12, 12)
-        painter.fillPath(path_fondo, grad_fondo)
+        path_fondo.addRoundedRect(2, 2, w - 4, h - 4, 16, 16)
+        
+        # Sombra simulada muy sutil
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 10))
+        painter.drawRoundedRect(4, 4, w - 4, h - 4, 16, 16)
+        
+        # Fondo blanco
+        painter.fillPath(path_fondo, QColor(255, 255, 255))
+        
+        # Borde ultra fino
+        painter.setPen(QPen(QColor(229, 231, 235), 1))
+        painter.drawPath(path_fondo)
         
         # 2. Dibujar ONDAS DE SONIDO (Centro)
         amplitud = 5 + (f_ruido * (h * 0.3)) # La onda crece con el ruido
@@ -146,19 +143,19 @@ class WidgetRuido(QFrame):
             painter.drawPath(path_onda)
             
         # 3. TÍTULO
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        rect_titulo = QRectF(20, 15, 250, 30)
-        painter.setPen(QColor(255, 255, 255))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        rect_titulo = QRectF(20, 15, 250, 20)
+        painter.setPen(QColor(127, 140, 141)) # Gris tipo Temperatura
         painter.drawText(rect_titulo, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, "RUIDO AMBIENTAL")
 
         # 4. TEXTOS (Valor y Estado) abajo
-        painter.setFont(QFont("Segoe UI", 36, QFont.Weight.Bold))
-        rect_val = QRectF(20, h - 70, 150, 50)
-        painter.setPen(QColor(255, 255, 255))
+        painter.setFont(QFont("Segoe UI", 48, QFont.Weight.Bold))
+        rect_val = QRectF(20, h - 90, 200, 70)
+        painter.setPen(color_base) # Color dinámico
         painter.drawText(rect_val, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom, f"{int(self.anim_valor)} dB")
         
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        rect_est = QRectF(150, h - 60, 150, 30)
+        rect_est = QRectF(220, h - 65, 150, 30)
         painter.setPen(color_base)
         painter.drawText(rect_est, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom, estado)
 
@@ -168,7 +165,7 @@ class WidgetRuido(QFrame):
         y_end = h - 50
         alto_barra = y_end - y_start
         
-        painter.setPen(QPen(QColor(255, 255, 255, 30), 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.setPen(QPen(QColor(0, 0, 0, 30), 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawLine(int(x_barra), int(y_start), int(x_barra), int(y_end))
         
         y_progreso = y_end - (alto_barra * f_ruido)
@@ -176,14 +173,12 @@ class WidgetRuido(QFrame):
         painter.setPen(QPen(color_base, 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawLine(int(x_barra), int(y_progreso), int(x_barra), int(y_end))
         
-        # 6. ICONO (Dinámico, pegado a la barra)
-        rect_icono = QRectF(w - 60, y_progreso - 20, 40, 40)
-        if img.isNull():
-            painter.setFont(QFont("Segoe UI Emoji", 24))
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(rect_icono, Qt.AlignmentFlag.AlignCenter, emoji)
-        else:
-            painter.drawImage(rect_icono, img)
+        # 6. ICONO (Emoji dinámico pegado a la barra)
+        rect_icono = QRectF(w - 75, y_progreso - 20, 40, 40)
+        
+        painter.setFont(QFont("Segoe UI Emoji", 24))
+        painter.setPen(QColor(0, 0, 0))
+        painter.drawText(rect_icono, Qt.AlignmentFlag.AlignCenter, emoji)
 
     def closeEvent(self, event):
         self.worker.detener()
