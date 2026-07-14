@@ -5,6 +5,8 @@ import threading
 SUPABASE_URL = "https://mlurfiaujxxeclqoxnpw.supabase.co"
 SUPABASE_KEY = "sb_publishable_qe05FiqVkD3Qogk-2koIIg_uOnIAM_w"
 
+CURRENT_ROOM_ID = "hosp"
+
 # Mapeo de nombres de sensores a columnas de la tabla 'sensor_readings'
 COLUMN_MAPPING = {
     "temperatura": "temperature",
@@ -43,11 +45,13 @@ def enviar_lecturas_dict(data_dict):
     Envía un diccionario de mediciones a la tabla 'sensor_readings' en un hilo de fondo.
     Limpia y castea los tipos de datos para cumplir con la definición de la base de datos de PostgreSQL.
     """
+    global CURRENT_ROOM_ID # <- Importante: Llamamos a la variable global
+
     cleaned_dict = {}
     for k, v in data_dict.items():
         if v is None:
             continue
-        # PostgreSQL no permite insertar flotantes (como 12.0) en columnas enteras (people_count)
+        # PostgreSQL no permite insertar flotantes en columnas enteras
         if k == "people_count":
             try:
                 cleaned_dict[k] = int(round(float(v)))
@@ -60,6 +64,10 @@ def enviar_lecturas_dict(data_dict):
                 pass
 
     if cleaned_dict:
+        # ¡AQUÍ ESTÁ LA SOLUCIÓN! 
+        # Inyectamos el room_id en el payload que irá a Supabase
+        cleaned_dict["room_id"] = CURRENT_ROOM_ID
+
         t = threading.Thread(target=_enviar_lecturas_dict_sync, args=(cleaned_dict,))
         t.daemon = True
         t.start()

@@ -1,11 +1,46 @@
 import sys
+import threading # <-- NUEVO: Para correr tareas en el fondo
+from flask import Flask, request, jsonify # <-- NUEVO: El servidor web
+from flask_cors import CORS # <-- NUEVO: Seguridad de conexión
+
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QLabel
 from PySide6.QtCore import Qt
+
 from modulos.aforo.widget_aforo import WidgetAforo
 from modulos.clima.widget_temperatura import WidgetTemperatura
 from modulos.luz.widget_luz import WidgetLuz
 from modulos.hum_ca_aire.widget_hum_ca_aire import WidgetHumCaAire
 from modulos.ruido.widget_ruido import WidgetRuido
+
+# <-- NUEVO: Importamos tu archivo de conexión para poder cambiarle la sala
+from modulos import supabase_client 
+
+# ==========================================
+# INICIO DEL SERVIDOR DE ESCUCHA (FLASK)
+# ==========================================
+server_app = Flask(__name__)
+CORS(server_app)
+
+@server_app.route('/set_context', methods=['POST'])
+def set_context():
+    data = request.json
+    if data and 'room_id' in data:
+        nuevo_cuarto = data['room_id']
+        
+        # Le cambiamos la variable a tu archivo supabase_client
+        supabase_client.CURRENT_ROOM_ID = nuevo_cuarto
+        
+        print(f"\n📡 ¡ORDEN RECIBIDA DESDE LA APP! Cambiando a sala: {nuevo_cuarto}\n")
+        return jsonify({"status": "success", "room_id": nuevo_cuarto}), 200
+        
+    return jsonify({"status": "error", "message": "Falta el room_id"}), 400
+
+def iniciar_servidor_flask():
+    # use_reloader=False es VITAL para que no congele tu interfaz gráfica
+    server_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+# ==========================================
+# FIN DEL SERVIDOR
+# ==========================================
 
 class PlaceholderWidget(QWidget):
     def __init__(self, titulo):
@@ -13,8 +48,8 @@ class PlaceholderWidget(QWidget):
         self.setStyleSheet("""
             QWidget {
                 background-color: #FFFFFF; 
-                border: 1px solid #D1D5DB; /* Borde sutil */
-                border-radius: 6px;        /* Curva ligeramente más fina */
+                border: 1px solid #D1D5DB; 
+                border-radius: 6px;        
             }
             QLabel {
                 border: none;
@@ -25,11 +60,6 @@ class PlaceholderWidget(QWidget):
         """)
         
         layout_interno = QGridLayout()
-        
-        # --- EL SECRETO PARA MAXIMIZAR EL ESPACIO INTERNO ---
-        # Esto elimina el "relleno" invisible dentro del cuadro.
-        # Si luego necesitas que tus iconos no toquen el borde, 
-        # le puedes poner (4, 4, 4, 4) por ejemplo.
         layout_interno.setContentsMargins(0, 0, 0, 0) 
         
         label = QLabel(titulo)
@@ -52,10 +82,7 @@ class DashboardHospital(QMainWindow):
         
         layout_grid = QGridLayout(central_widget)
         
-        # --- REDUCCIÓN EXTREMA DE MARCOS EXTERIORES ---
-        # Separación entre los cuadros (4 píxeles)
         layout_grid.setSpacing(4)  
-        # Margen contra los bordes de la pantalla (4 píxeles)
         layout_grid.setContentsMargins(4, 4, 4, 4) 
         
         self.mod_iluminacion = WidgetLuz()
@@ -79,7 +106,6 @@ class DashboardHospital(QMainWindow):
         layout_grid.setRowStretch(2, 2) 
 
     def closeEvent(self, event):
-        # Asegurar la correcta finalización de hilos en los widgets hijos
         if hasattr(self, 'mod_personas') and hasattr(self.mod_personas, 'closeEvent'):
             self.mod_personas.closeEvent(event)
         if hasattr(self, 'mod_temperatura') and hasattr(self.mod_temperatura, 'closeEvent'):
@@ -93,6 +119,12 @@ class DashboardHospital(QMainWindow):
         super().closeEvent(event)
 
 if __name__ == "__main__":
+    # ---> NUEVO: Encendemos el servidor en el fondo ANTES de mostrar la pantalla
+    hilo_flask = threading.Thread(target=iniciar_servidor_flask)
+    hilo_flask.daemon = True
+    hilo_flask.start()
+    print("Oído digital encendido en el puerto 5000...")
+
     app = QApplication(sys.argv)
     ventana = DashboardHospital()
     ventana.show()
