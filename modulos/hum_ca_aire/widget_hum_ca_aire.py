@@ -44,7 +44,6 @@ class SensorHumedadWorker(QThread):
                     self.valor_simulado += 30.0
                 self.datos_actualizados.emit(self.valor_simulado)
                 print(f"[Sensor Humedad] Simulación - Humedad: {self.valor_simulado:.1f}%")
-                enviar_lectura("humedad", self.valor_simulado)
                 self.msleep(2000)
             else:
                 try:
@@ -52,7 +51,6 @@ class SensorHumedadWorker(QThread):
                     if hum is not None:
                         self.datos_actualizados.emit(float(hum))
                         print(f"[Sensor Humedad] Real - Humedad: {hum:.1f}%")
-                        enviar_lectura("humedad", hum)
                 except RuntimeError as error:
                     # Errores temporales de lectura de DHT11 se ignoran
                     pass
@@ -102,7 +100,7 @@ class SensorCalidadWorker(QThread):
                 self.sensor = SensorCalidadAire(
                     voltaje_entrada=5.0,
                     r0=37.0,
-                    enviar_supabase=True,
+                    enviar_supabase=False,
                 )
 
                 print(
@@ -144,7 +142,6 @@ class SensorCalidadWorker(QThread):
 
         self.datos_actualizados.emit(self.valor_simulado)
         print(f"[Sensor Calidad Aire] Simulación - AQI: {self.valor_simulado:.1f} ppm")
-        enviar_lectura("calidad_aire", self.valor_simulado)
 
     def _leer_sensor_real(self):
         if self.sensor is None:
@@ -161,7 +158,6 @@ class SensorCalidadWorker(QThread):
                 f"Voltaje: {datos['voltaje']:.3f} V | "
                 f"Estimación: {ppm:.1f} ppm"
             )
-            enviar_lectura("calidad_aire", ppm)
 
         except Exception as error:
             mensaje = f"Error leyendo MQ-135: {error}"
@@ -216,7 +212,7 @@ class PanelHumedad(QFrame):
                 'trail': random.uniform(10, 50)
             })
             
-        self.worker = SensorHumedadWorker(simulacion=False)
+        self.worker = SensorHumedadWorker(simulacion=True)
         self.worker.datos_actualizados.connect(self.actualizar_target)
         self.worker.start()
 

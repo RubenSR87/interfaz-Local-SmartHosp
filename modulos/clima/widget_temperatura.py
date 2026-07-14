@@ -39,20 +39,30 @@ class TemperaturaSensorThread(QThread):
             self.log_mensaje.emit("Sensor DHT11 conectado. Monitoreando clima...")
             while self.running:
                 try:
-                    temp_c = sensor_dht.temperature
-                    hum = sensor_dht.humidity
+                    temp_c = None
+                    hum = None
+                    
+                    try:
+                        temp_c = sensor_dht.temperature
+                    except RuntimeError:
+                        pass
+                        
+                    time.sleep(0.2)
+                    
+                    try:
+                        hum = sensor_dht.humidity
+                    except RuntimeError:
+                        pass
+                        
                     if temp_c is not None:
                         self.temperatura_cambiada.emit(float(temp_c))
                         if hum is not None:
                             self.humedad_cambiada.emit(float(hum))
-                        self.log_mensaje.emit(f"DHT11 - Temp: {temp_c:.1f}°C | Hum: {hum}%")
-                        
-                        payload = {"temperature": float(temp_c)}
-                        if hum is not None:
-                            payload["humidity"] = float(hum)
-                        enviar_lecturas_dict(payload)
+                        self.log_mensaje.emit(f"DHT11 - Temp: {temp_c:.1f}°C | Hum: {hum if hum is not None else '--'}%")
+                    elif hum is not None:
+                        self.humedad_cambiada.emit(float(hum))
+                        self.log_mensaje.emit(f"DHT11 - Temp: --°C | Hum: {hum}%")
                 except RuntimeError as error:
-                    # Errores temporales de lectura del DHT11 son comunes, se ignora y reintenta
                     pass
                 
                 # Dormir 10 segundos de manera interrumpible (DHT11 requiere min 2s de tasa)
@@ -78,7 +88,6 @@ class TemperaturaSensorThread(QThread):
             
             self.temperatura_cambiada.emit(temp_simulada)
             self.log_mensaje.emit(f"Simulación - Temp: {temp_simulada:.1f}°C")
-            enviar_lectura("temperatura", temp_simulada)
             
             # Dormir 10 segundos interrumpibles
             for _ in range(100):

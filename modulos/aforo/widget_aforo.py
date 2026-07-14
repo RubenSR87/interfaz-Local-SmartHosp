@@ -53,7 +53,6 @@ class AforoSensorThread(QThread):
                 if not ret:
                     time.sleep(0.5)
                     continue
-                
                 tiempo_actual = time.time()
                 if (tiempo_actual - tiempo_ultima_captura) >= INTERVALO_SEGUNDOS:
                     resultados = modelo.predict(frame, classes=[0], conf=0.45, imgsz=320, verbose=False)
@@ -61,7 +60,6 @@ class AforoSensorThread(QThread):
                     self.aforo_cambiado.emit(aforo_actual)
                     self.log_mensaje.emit(f"Aforo actualizado: {aforo_actual} personas")
                     tiempo_ultima_captura = tiempo_actual
-                    enviar_lectura("aforo", aforo_actual)
                 
                 time.sleep(0.03)
                 
@@ -77,7 +75,6 @@ class AforoSensorThread(QThread):
             aforo_simulado = random.randint(5, 38)
             self.aforo_cambiado.emit(aforo_simulado)
             self.log_mensaje.emit(f"Simulación - Aforo actualizado: {aforo_simulado} personas")
-            enviar_lectura("aforo", aforo_simulado)
             
             for _ in range(100):
                 if not self.running:

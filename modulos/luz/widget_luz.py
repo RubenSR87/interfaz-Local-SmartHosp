@@ -45,13 +45,11 @@ class SensorLuzWorker(QThread):
                     
                 self.datos_actualizados.emit(self.valor_simulado)
                 print(f"[Sensor Luz] Simulación - Lux: {self.valor_simulado:.1f}")
-                enviar_lectura("lux", self.valor_simulado)
             else:
                 try:
                     nivel_luz = self.sensor.lux
                     self.datos_actualizados.emit(nivel_luz)
                     print(f"[Sensor Luz] Real - Lux: {nivel_luz:.1f}")
-                    enviar_lectura("lux", nivel_luz)
                 except Exception as e:
                     print(f"Error leyendo sensor de luz: {e}")
             

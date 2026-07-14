@@ -46,7 +46,6 @@ class SensorRuidoWorker(QThread):
                     self.valor_simulado += 20.0
                 self.datos_actualizados.emit(self.valor_simulado)
                 print(f"[Sensor Ruido] Simulación - Nivel: {self.valor_simulado:.1f} dB")
-                enviar_lectura("ruido", self.valor_simulado)
                 self.msleep(1500)
             else:
                 import numpy as np
@@ -59,7 +58,6 @@ class SensorRuidoWorker(QThread):
                         db_spl = 0.0
                     self.datos_actualizados.emit(float(db_spl))
                     print(f"[Sensor Ruido] Real - Nivel: {db_spl:.1f} dB")
-                    enviar_lectura("ruido", db_spl)
                 self.msleep(1500)
 
     def detener(self):
