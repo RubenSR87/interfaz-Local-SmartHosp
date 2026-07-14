@@ -13,7 +13,9 @@ COLUMN_MAPPING = {
     "humedad": "humidity",
     "ruido": "noise_level",
     "luz": "light_level",
+    "lux": "light_level",           # <-- AÑADIDO PARA QUE RECONOZCA 'lux'
     "co2": "gas_level",
+    "calidad_aire": "gas_level",    # <-- AÑADIDO PARA QUE RECONOZCA 'calidad_aire'
     "aforo": "people_count"
 }
 
