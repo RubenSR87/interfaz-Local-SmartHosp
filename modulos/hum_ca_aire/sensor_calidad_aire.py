@@ -35,11 +35,13 @@ class SensorCalidadAire:
     def __init__(
         self,
         voltaje_entrada: float = 5.0,
-        r0: float = 37.0,
+        r0: float = 14.5,  # TODO: Reemplaza este valor con tu R0 calibrado en aire limpio
+        rl: float = 10.0,  # Resistencia de carga (RL) del módulo (típicamente 10k o 1k)
         enviar_supabase: bool = True,
     ):
         self.voltaje_entrada = voltaje_entrada
         self.r0 = r0
+        self.rl = rl
         self.enviar_supabase = enviar_supabase
 
         self.i2c = board.I2C()
@@ -75,16 +77,15 @@ class SensorCalidadAire:
                 "El voltaje leído es igual o superior al voltaje de entrada."
             )
 
-        # Cálculo empleado actualmente por el proyecto.
-        rs = (
-            self.voltaje_entrada - voltaje_gas
-        ) / voltaje_gas
+        # Cálculo corregido: Se incluye la resistencia de carga (RL) para obtener Rs
+        rs = self.rl * ((self.voltaje_entrada - voltaje_gas) / voltaje_gas)
 
         ratio = rs / self.r0
 
         if ratio <= 0:
             raise RuntimeError("El ratio Rs/R0 no es válido.")
 
+        # Ecuación empírica para estimación de ppm en MQ-135
         ppm = 116.6 * (ratio ** -2.769)
 
         datos = {
@@ -100,14 +101,12 @@ class SensorCalidadAire:
         """
         Devuelve solamente el valor que necesita el widget.
         """
-
         return self.leer()["ppm"]
 
     def leer_y_enviar(self) -> dict:
         """
         Realiza una lectura y la envía a Supabase si está habilitado.
         """
-
         datos = self.leer()
 
         if self.enviar_supabase and enviar_lectura is not None:
@@ -141,7 +140,7 @@ def ejecutar_prueba() -> None:
 
                 print(
                     f"Voltaje: {datos['voltaje']:.3f} V | "
-                    f"Rs/RL: {datos['rs']:.4f} | "
+                    f"Rs: {datos['rs']:.4f} kΩ | "
                     f"Calidad de aire estimada: "
                     f"{datos['ppm']:.1f} ppm"
                 )
